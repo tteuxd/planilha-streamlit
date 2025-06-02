@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
+import matplotlib.pyplot as plt
 
 st.set_page_config(page_title="Planilha de Cadastro", layout="wide")
 
@@ -29,7 +30,7 @@ def highlight_row(row):
     else:
         return [""] * len(row)
 
-# 🔥 Callback que preenche os campos quando muda o selectbox
+# Callback para preencher os campos ao mudar a seleção
 def selecionar_linha():
     if st.session_state.linha_selecionada is not None:
         st.session_state.nome = df.loc[st.session_state.linha_selecionada, "Nome"]
@@ -41,100 +42,147 @@ def selecionar_linha():
         st.session_state.classe = ""
         st.session_state.status_atual = []
 
-# Título
 st.title("🗒️ Planilha de Cadastro de Jogadores")
 
-# Mostrar dados
-st.subheader("📑 Dados Cadastrados")
+# === Menu lateral para escolher a aba ===
+aba = st.sidebar.selectbox("Escolha a aba", ["Cadastro", "Relatórios"])
 
-if not df.empty:
-    styled_df = df.style.apply(highlight_row, axis=1)
-    st.dataframe(styled_df, use_container_width=True)
-else:
-    st.info("Nenhum dado cadastrado ainda.")
+if aba == "Cadastro":
+    # === FILTRO DE PESQUISA ===
+    st.subheader("🔍 Filtro de Pesquisa")
+    busca_nome = st.text_input("Buscar por Nome")
+    busca_classe = st.text_input("Buscar por Classe")
 
-# Gerenciar dados
-st.subheader("✍️ Adicionar, Editar ou Remover")
+    # Filtrar dataframe
+    df_filtrado = df.copy()
+    if busca_nome:
+        df_filtrado = df_filtrado[df_filtrado["Nome"].str.contains(busca_nome, case=False, na=False)]
+    if busca_classe:
+        df_filtrado = df_filtrado[df_filtrado["Classe"].str.contains(busca_classe, case=False, na=False)]
 
-with st.expander("Gerenciar Dados"):
+    # Mostrar tabela filtrada
+    st.subheader("📑 Dados Cadastrados")
+    if not df_filtrado.empty:
+        styled_df = df_filtrado.style.apply(highlight_row, axis=1)
+        st.dataframe(styled_df, use_container_width=True)
+    else:
+        st.info("Nenhum dado encontrado com esses filtros.")
 
-    # Selectbox para selecionar a linha
-    linha = st.selectbox(
-        "Selecione para editar/remover (ou deixe vazio para adicionar):",
-        options=[None] + list(df.index),
-        format_func=lambda x: f"{df.loc[x, 'Nome']} - {df.loc[x, 'Classe']}" if x is not None else "Adicionar Novo",
-        key="linha_selecionada",
-        on_change=selecionar_linha
-    )
+    # === Gerenciar dados ===
+    st.subheader("✍️ Adicionar, Editar ou Remover")
 
-    # Campos de texto
-    col1, col2 = st.columns(2)
-    nome = col1.text_input("Nome", key="nome")
-    classe = col2.text_input("Classe", key="classe")
+    with st.expander("Gerenciar Dados"):
 
-    # Checkboxes
-    verificado = st.checkbox("✅ Verificado", value="Verificado" in st.session_state.get("status_atual", []))
-    nao_verificado = st.checkbox("❌ Não Verificado", value="Não Verificado" in st.session_state.get("status_atual", []))
-    comprando_artefato = st.checkbox("🛒 Comprando Artefato", value="Comprando Artefato" in st.session_state.get("status_atual", []))
-    comprando_crystal = st.checkbox("💎 Comprando Crystal", value="Comprando Crystal" in st.session_state.get("status_atual", []))
+        # Selectbox para editar
+        linha = st.selectbox(
+            "Selecione para editar/remover (ou deixe vazio para adicionar):",
+            options=[None] + list(df_filtrado.index),
+            format_func=lambda x: f"{df.loc[x, 'Nome']} - {df.loc[x, 'Classe']}" if x is not None else "Adicionar Novo",
+            key="linha_selecionada",
+            on_change=selecionar_linha
+        )
 
-    # Montar status
-    status_list = []
-    if verificado:
-        status_list.append("Verificado")
-    if nao_verificado:
-        status_list.append("Não Verificado")
-    if comprando_artefato:
-        status_list.append("Comprando Artefato")
-    if comprando_crystal:
-        status_list.append("Comprando Crystal")
+        col1, col2 = st.columns(2)
+        nome = col1.text_input("Nome", key="nome")
+        classe = col2.text_input("Classe", key="classe")
 
-    status_text = ", ".join(status_list)
+        # Checkboxes de status
+        verificado = st.checkbox("✅ Verificado", value="Verificado" in st.session_state.get("status_atual", []))
+        nao_verificado = st.checkbox("❌ Não Verificado", value="Não Verificado" in st.session_state.get("status_atual", []))
+        comprando_artefato = st.checkbox("🛒 Comprando Artefato", value="Comprando Artefato" in st.session_state.get("status_atual", []))
+        comprando_crystal = st.checkbox("💎 Comprando Crystal", value="Comprando Crystal" in st.session_state.get("status_atual", []))
 
-    # Botões
-    col3, col4, col5 = st.columns(3)
+        status_list = []
+        if verificado:
+            status_list.append("Verificado")
+        if nao_verificado:
+            status_list.append("Não Verificado")
+        if comprando_artefato:
+            status_list.append("Comprando Artefato")
+        if comprando_crystal:
+            status_list.append("Comprando Crystal")
 
-    if col3.button("💾 Salvar"):
-        if nome and classe:
-            if linha is not None:
-                df.loc[linha, "Nome"] = nome
-                df.loc[linha, "Classe"] = classe
-                df.loc[linha, "Status"] = status_text
-                st.success("Registro atualizado com sucesso!")
+        status_text = ", ".join(status_list)
+
+        col3, col4, col5 = st.columns(3)
+
+        if col3.button("💾 Salvar"):
+            if nome and classe:
+                if linha is not None:
+                    df.loc[linha, "Nome"] = nome
+                    df.loc[linha, "Classe"] = classe
+                    df.loc[linha, "Status"] = status_text
+                    st.success("Registro atualizado com sucesso!")
+                else:
+                    novo = {"Nome": nome, "Classe": classe, "Status": status_text}
+                    df.loc[len(df)] = novo
+                    st.success("Registro adicionado com sucesso!")
+                salvar_dados()
+                st.session_state.nome = ""
+                st.session_state.classe = ""
+                st.session_state.status_atual = []
+                st.session_state.linha_selecionada = None
+                st.experimental_rerun()
             else:
-                novo = {"Nome": nome, "Classe": classe, "Status": status_text}
-                df.loc[len(df)] = novo
-                st.success("Registro adicionado com sucesso!")
-            salvar_dados()
+                st.warning("Preencha os campos de Nome e Classe.")
+
+        # Confirmação antes de remover
+        if col4.button("🗑️ Remover") and linha is not None:
+            if st.confirm(f"Tem certeza que deseja remover '{df.loc[linha, 'Nome']}'?"):
+                df.drop(linha, inplace=True)
+                df.reset_index(drop=True, inplace=True)
+                salvar_dados()
+                st.success("Registro removido!")
+                st.session_state.nome = ""
+                st.session_state.classe = ""
+                st.session_state.status_atual = []
+                st.session_state.linha_selecionada = None
+                st.experimental_rerun()
+
+        if col5.button("♻️ Limpar Campos"):
             st.session_state.nome = ""
             st.session_state.classe = ""
             st.session_state.status_atual = []
             st.session_state.linha_selecionada = None
             st.experimental_rerun()
-        else:
-            st.warning("Preencha os campos de Nome e Classe.")
 
-    if col4.button("🗑️ Remover") and linha is not None:
-        df = df.drop(linha).reset_index(drop=True)
-        salvar_dados()
-        st.success("Registro removido!")
-        st.session_state.nome = ""
-        st.session_state.classe = ""
-        st.session_state.status_atual = []
-        st.session_state.linha_selecionada = None
-        st.experimental_rerun()
+elif aba == "Relatórios":
+    st.header("📊 Relatórios de Status")
 
-    if col5.button("♻️ Limpar Campos"):
-        st.session_state.nome = ""
-        st.session_state.classe = ""
-        st.session_state.status_atual = []
-        st.session_state.linha_selecionada = None
-        st.experimental_rerun()
+    # Contar status
+    cont_verificado = df["Status"].str.contains("Verificado", na=False).sum()
+    cont_nao_verificado = df["Status"].str.contains("Não Verificado", na=False).sum()
+    cont_comprando_artefato = df["Status"].str.contains("Comprando Artefato", na=False).sum()
+    cont_comprando_crystal = df["Status"].str.contains("Comprando Crystal", na=False).sum()
 
-# Exportação
-st.subheader("📤 Exportar Dados")
+    st.markdown("### Quantidade por Status")
 
-if st.button("Exportar para Excel"):
+    # Gráfico Pizza
+    labels = ["Verificado", "Não Verificado", "Comprando Artefato", "Comprando Crystal"]
+    sizes = [cont_verificado, cont_nao_verificado, cont_comprando_artefato, cont_comprando_crystal]
+    colors = ['#d4edda', '#f8d7da', '#fff3cd', '#fff3cd']
+
+    fig1, ax1 = plt.subplots()
+    ax1.pie(sizes, labels=labels, autopct='%1.1f%%', colors=colors, startangle=140)
+    ax1.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
+
+    st.pyplot(fig1)
+
+    # Gráfico barras
+    st.markdown("### Gráfico de Barras")
+
+    fig2, ax2 = plt.subplots()
+    ax2.bar(labels, sizes, color=colors)
+    ax2.set_ylabel('Quantidade')
+    ax2.set_ylim(0, max(sizes) + 2)
+
+    for i, v in enumerate(sizes):
+        ax2.text(i, v + 0.1, str(v), ha='center', fontweight='bold')
+
+    st.pyplot(fig2)
+
+# Exportação em ambas as abas
+if st.button("📤 Exportar para Excel"):
     df.to_excel("dados.xlsx", index=False)
     st.success("Arquivo 'dados.xlsx' exportado com sucesso!")
     with open("dados.xlsx", "rb") as f:
