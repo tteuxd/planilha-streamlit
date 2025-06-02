@@ -126,18 +126,22 @@ if aba == "Cadastro":
             else:
                 st.warning("Preencha os campos de Nome e Classe.")
 
-        # Confirmação antes de remover
+        # Confirmação antes de remover usando modal customizado
         if col4.button("🗑️ Remover") and linha is not None:
-            if st.confirm(f"Tem certeza que deseja remover '{df.loc[linha, 'Nome']}'?"):
-                df.drop(linha, inplace=True)
-                df.reset_index(drop=True, inplace=True)
-                salvar_dados()
-                st.success("Registro removido!")
-                st.session_state.nome = ""
-                st.session_state.classe = ""
-                st.session_state.status_atual = []
-                st.session_state.linha_selecionada = None
-                st.experimental_rerun()
+            with st.modal("Confirmação de Remoção", True):
+                st.write(f"Tem certeza que deseja remover '{df.loc[linha, 'Nome']}'?")
+                if st.button("Confirmar Remoção"):
+                    df.drop(linha, inplace=True)
+                    df.reset_index(drop=True, inplace=True)
+                    salvar_dados()
+                    st.success("Registro removido!")
+                    st.session_state.nome = ""
+                    st.session_state.classe = ""
+                    st.session_state.status_atual = []
+                    st.session_state.linha_selecionada = None
+                    st.experimental_rerun()
+                if st.button("Cancelar"):
+                    st.experimental_rerun()
 
         if col5.button("♻️ Limpar Campos"):
             st.session_state.nome = ""
