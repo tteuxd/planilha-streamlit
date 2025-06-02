@@ -2,58 +2,50 @@ import streamlit as st
 import pandas as pd
 import os
 
-
-# ----- Configuração da página -----
+# Configuração da página
 st.set_page_config(page_title="Planilha de Cadastro", layout="wide")
 
-
-# ----- Carregar Dados -----
+# Caminho do arquivo CSV
 arquivo_csv = "dados.csv"
 
+# Carregar Dados
 if os.path.exists(arquivo_csv):
     df = pd.read_csv(arquivo_csv)
 else:
     df = pd.DataFrame(columns=["Nome", "Classe", "Status"])
 
-
+# Função para salvar os dados
 def salvar_dados():
     df.to_csv(arquivo_csv, index=False)
 
-
-def definir_cor(status):
+# Função para colorir linhas
+def highlight_row(row):
+    status = str(row["Status"])
     if "Verificado" in status:
-        return "green"
+        return ["background-color: #d4edda; color: green"] * len(row)
     elif "Não Verificado" in status:
-        return "red"
+        return ["background-color: #f8d7da; color: red"] * len(row)
     elif "Comprando Artefato" in status or "Comprando Crystal" in status:
-        return "orange"
+        return ["background-color: #fff3cd; color: orange"] * len(row)
     else:
-        return "black"
+        return [""] * len(row)
 
+# Título
+st.title("🗒️ Planilha de Cadastro de Jogadores")
 
-# ----- Interface -----
-st.title("🗒️ Planilha de Cadastro")
-
+# Mostrar dados
 st.subheader("📑 Dados Cadastrados")
 
-# ----- Mostrar Dados -----
 if not df.empty:
-    styled_df = df.style.apply(
-        lambda x: [
-            f"color: {definir_cor(str(v))}"
-            for v in x["Status"]
-        ],
-        axis=1
-    )
+    styled_df = df.style.apply(highlight_row, axis=1)
     st.dataframe(styled_df, use_container_width=True)
 else:
     st.info("Nenhum dado cadastrado ainda.")
 
-
-# ----- Seletor de Linha para Editar -----
+# Área de edição e cadastro
 st.subheader("✍️ Adicionar, Editar ou Remover")
 
-with st.expander("Clique aqui para Gerenciar Dados"):
+with st.expander("Gerenciar Dados"):
     col1, col2 = st.columns(2)
 
     if not df.empty:
@@ -68,19 +60,19 @@ with st.expander("Clique aqui para Gerenciar Dados"):
     if linha is not None:
         nome = col1.text_input("Nome", value=df.loc[linha, "Nome"])
         classe = col2.text_input("Classe", value=df.loc[linha, "Classe"])
-
         status_atual = df.loc[linha, "Status"].split(", ") if pd.notna(df.loc[linha, "Status"]) else []
-
     else:
         nome = col1.text_input("Nome")
         classe = col2.text_input("Classe")
         status_atual = []
 
-    verificado = st.checkbox("Verificado", value="Verificado" in status_atual)
-    nao_verificado = st.checkbox("Não Verificado", value="Não Verificado" in status_atual)
-    comprando_artefato = st.checkbox("Comprando Artefato", value="Comprando Artefato" in status_atual)
-    comprando_crystal = st.checkbox("Comprando Crystal", value="Comprando Crystal" in status_atual)
+    # Checkboxes para status
+    verificado = st.checkbox("✅ Verificado", value="Verificado" in status_atual)
+    nao_verificado = st.checkbox("❌ Não Verificado", value="Não Verificado" in status_atual)
+    comprando_artefato = st.checkbox("🛒 Comprando Artefato", value="Comprando Artefato" in status_atual)
+    comprando_crystal = st.checkbox("💎 Comprando Crystal", value="Comprando Crystal" in status_atual)
 
+    # Montagem da string de status
     status_list = []
     if verificado:
         status_list.append("Verificado")
@@ -95,7 +87,7 @@ with st.expander("Clique aqui para Gerenciar Dados"):
 
     col3, col4, col5 = st.columns(3)
 
-    # ----- Adicionar ou Editar -----
+    # Botão Salvar
     if col3.button("💾 Salvar"):
         if nome and classe:
             if linha is not None:
@@ -112,19 +104,18 @@ with st.expander("Clique aqui para Gerenciar Dados"):
         else:
             st.warning("Preencha os campos de Nome e Classe.")
 
-    # ----- Remover -----
+    # Botão Remover
     if col4.button("🗑️ Remover") and linha is not None:
         df = df.drop(linha).reset_index(drop=True)
         salvar_dados()
         st.success("Registro removido!")
         st.experimental_rerun()
 
-    # ----- Limpar -----
+    # Botão Limpar Campos
     if col5.button("♻️ Limpar Campos"):
         st.experimental_rerun()
 
-
-# ----- Exportar -----
+# Exportação para Excel
 st.subheader("📤 Exportar Dados")
 
 if st.button("Exportar para Excel"):
