@@ -25,7 +25,6 @@ if "df_membros" not in st.session_state:
     else:
         st.session_state.df_membros = pd.DataFrame(columns=["Nome", "Classe", "Status"])
 
-# ==== Normalizar nome ====
 st.session_state.df_membros["Nome"] = st.session_state.df_membros["Nome"].astype(str).str.strip().str.title()
 
 # ==== Sidebar ====
@@ -47,6 +46,15 @@ if pagina == "Gerenciamento de Membros":
         filtro_classe = st.selectbox("Filtrar por classe", [""] + CLASSES)
     with colf3:
         filtro_status = st.multiselect("Filtrar por status", STATUS_OPCOES)
+
+    # 🔄 Botão para atualizar dados do Excel
+    if st.button("🔄 Atualizar Dados"):
+        if os.path.exists(FILE_PATH):
+            st.session_state.df_membros = pd.read_excel(FILE_PATH)
+            st.session_state.df_membros["Nome"] = st.session_state.df_membros["Nome"].astype(str).str.strip().str.title()
+            st.success("✅ Dados atualizados com sucesso!")
+        else:
+            st.warning("⚠️ Arquivo de dados não encontrado.")
 
     df_filtrado = df.copy()
 
