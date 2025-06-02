@@ -24,6 +24,9 @@ if os.path.exists(FILE_PATH):
 else:
     df = pd.DataFrame(columns=["Nome", "Classe", "Status"])
 
+# ==== Normalizar nome ====
+df["Nome"] = df["Nome"].astype(str).str.strip().str.title()
+
 # ==== Sidebar ====
 st.sidebar.title("Menu")
 pagina = st.sidebar.radio("Escolha a Página", ["Gerenciamento de Membros", "Relatórios"])
@@ -43,12 +46,17 @@ if pagina == "Gerenciamento de Membros":
         filtro_status = st.multiselect("Filtrar por status", STATUS_OPCOES)
 
     df_filtrado = df.copy()
+
     if filtro_nome:
         df_filtrado = df_filtrado[df_filtrado["Nome"].str.contains(filtro_nome, case=False, na=False)]
     if filtro_classe:
         df_filtrado = df_filtrado[df_filtrado["Classe"] == filtro_classe]
     if filtro_status:
-        df_filtrado = df_filtrado[df_filtrado["Status"].str.contains('|'.join(filtro_status))]
+        df_filtrado = df_filtrado[
+            df_filtrado["Status"].apply(
+                lambda x: any(fs in str(x).split(", ") for fs in filtro_status)
+            )
+        ]
 
     st.subheader("📑 Dados dos Membros")
 
@@ -91,26 +99,36 @@ if pagina == "Gerenciamento de Membros":
     col1, col2 = st.columns(2)
 
     with col1:
-        nome = st.text_input("Nome", value=nome)
+        nome = st.text_input("Nome", value=nome).strip().title()
         classe = st.selectbox("Classe", CLASSES, index=CLASSES.index(classe) if classe in CLASSES else 0)
 
     with col2:
         status = st.multiselect("Status", STATUS_OPCOES, default=status)
 
-    if st.button("💾 Salvar"):
-        if nome:
-            status_str = ", ".join(status)
+    col3, col4 = st.columns(2)
 
-            if nome in df["Nome"].values:
-                df.loc[df["Nome"] == nome, ["Classe", "Status"]] = [classe, status_str]
-                st.success(f"Membro {nome} atualizado.")
+    with col3:
+        if st.button("💾 Salvar"):
+            if nome:
+                status_str = ", ".join(status)
+
+                if nome in df["Nome"].values:
+                    df.loc[df["Nome"] == nome, ["Classe", "Status"]] = [classe, status_str]
+                    st.success(f"Membro {nome} atualizado.")
+                else:
+                    df.loc[len(df)] = [nome, classe, status_str]
+                    st.success(f"Membro {nome} adicionado.")
+
+                df.to_excel(FILE_PATH, index=False)
             else:
-                df.loc[len(df)] = [nome, classe, status_str]
-                st.success(f"Membro {nome} adicionado.")
+                st.warning("⚠️ Preencha o campo Nome.")
 
-            df.to_excel(FILE_PATH, index=False)
-        else:
-            st.warning("⚠️ Preencha o campo Nome.")
+    with col4:
+        if linha_selecionada != "Novo Jogador":
+            if st.button("🗑️ Excluir Membro"):
+                df = df[df["Nome"] != linha_selecionada]
+                df.to_excel(FILE_PATH, index=False)
+                st.success(f"Membro {linha_selecionada} excluído.")
 
     st.subheader("📤 Exportar Dados")
     buffer = BytesIO()
@@ -135,8 +153,10 @@ if pagina == "Relatórios":
         else:
             status_counts = df["Status"].str.get_dummies(sep=", ").sum()
             if not status_counts.empty:
+                colors = plt.cm.Set3.colors
                 fig1, ax1 = plt.subplots()
-                ax1.pie(status_counts, labels=status_counts.index, autopct='%1.1f%%', startangle=90)
+                ax1.pie(status_counts, labels=status_counts.index, autopct='%1.1f%%', startangle=90, colors=colors)
+                ax1.set_title("Distribuição por Status")
                 ax1.axis('equal')
                 st.pyplot(fig1)
             else:
