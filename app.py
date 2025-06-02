@@ -70,18 +70,21 @@ if pagina == "Gerenciamento de Membros":
             use_container_width=True,
             height=400
         )
-
-        linha_selecionada = st.selectbox("Clique em um membro para editar", df_filtrado["Nome"])
-
-        if linha_selecionada:
-            dados = df_filtrado[df_filtrado["Nome"] == linha_selecionada].iloc[0]
-            nome = dados["Nome"]
-            classe = dados["Classe"]
-            status = dados["Status"].split(", ") if isinstance(dados["Status"], str) else []
+        nomes_para_editar = ["Novo Jogador"] + df_filtrado["Nome"].tolist()
     else:
+        nomes_para_editar = ["Novo Jogador"]
+
+    linha_selecionada = st.selectbox("Clique em um membro para editar", nomes_para_editar)
+
+    if linha_selecionada == "Novo Jogador":
         nome = ""
         classe = CLASSES[0]
         status = []
+    else:
+        dados = df_filtrado[df_filtrado["Nome"] == linha_selecionada].iloc[0]
+        nome = dados["Nome"]
+        classe = dados["Classe"]
+        status = dados["Status"].split(", ") if isinstance(dados["Status"], str) else []
 
     st.subheader("➕ Cadastro / Edição de Membros")
 
@@ -119,7 +122,6 @@ if pagina == "Gerenciamento de Membros":
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
 
-
 # ==== Página: Relatórios ====
 if pagina == "Relatórios":
     st.title("📊 Relatórios de Membros")
@@ -128,24 +130,30 @@ if pagina == "Relatórios":
 
     with aba1:
         st.subheader("📈 Status dos Membros")
-        status_counts = df["Status"].str.get_dummies(sep=", ").sum()
-        if not status_counts.empty:
-            fig1, ax1 = plt.subplots()
-            ax1.pie(status_counts, labels=status_counts.index, autopct='%1.1f%%', startangle=90)
-            ax1.axis('equal')
-            st.pyplot(fig1)
-        else:
+        if df.empty:
             st.info("Sem dados para gerar o gráfico.")
+        else:
+            status_counts = df["Status"].str.get_dummies(sep=", ").sum()
+            if not status_counts.empty:
+                fig1, ax1 = plt.subplots()
+                ax1.pie(status_counts, labels=status_counts.index, autopct='%1.1f%%', startangle=90)
+                ax1.axis('equal')
+                st.pyplot(fig1)
+            else:
+                st.info("Sem dados para gerar o gráfico.")
 
     with aba2:
         st.subheader("📊 Distribuição de Classes")
-        classe_counts = df["Classe"].value_counts()
-        if not classe_counts.empty:
-            fig2, ax2 = plt.subplots()
-            ax2.bar(classe_counts.index, classe_counts.values, color="skyblue")
-            plt.xticks(rotation=90)
-            ax2.set_ylabel("Quantidade")
-            ax2.set_title("Distribuição de Classes")
-            st.pyplot(fig2)
-        else:
+        if df.empty:
             st.info("Sem dados para gerar o gráfico.")
+        else:
+            classe_counts = df["Classe"].value_counts()
+            if not classe_counts.empty:
+                fig2, ax2 = plt.subplots()
+                ax2.bar(classe_counts.index, classe_counts.values, color="skyblue")
+                plt.xticks(rotation=90)
+                ax2.set_ylabel("Quantidade")
+                ax2.set_title("Distribuição de Classes")
+                st.pyplot(fig2)
+            else:
+                st.info("Sem dados para gerar o gráfico.")
