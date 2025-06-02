@@ -26,12 +26,12 @@ else:
 
 st.title("📋 Planilha de Controle de Membros")
 
+# ==== Filtros ====
 st.sidebar.header("🔍 Filtros de Pesquisa")
 filtro_nome = st.sidebar.text_input("Filtrar por nome")
 filtro_classe = st.sidebar.selectbox("Filtrar por classe", [""] + CLASSES)
 filtro_status = st.sidebar.multiselect("Filtrar por status", STATUS_OPCOES)
 
-# Aplicando filtros
 df_filtrado = df.copy()
 if filtro_nome:
     df_filtrado = df_filtrado[df_filtrado["Nome"].str.contains(filtro_nome, case=False, na=False)]
@@ -40,18 +40,64 @@ if filtro_classe:
 if filtro_status:
     df_filtrado = df_filtrado[df_filtrado["Status"].str.contains('|'.join(filtro_status))]
 
+# ==== Área de Cadastro e Edição ====
+st.subheader("➕ Cadastro / ✏️ Edição")
+
+# ==== Detectar clique na tabela ====
+linha_selecionada = st.radio(
+    "Clique no nome para editar:",
+    options=[""] + list(df_filtrado["Nome"]),
+    horizontal=True
+)
+
+if linha_selecionada:
+    membro = df[df["Nome"] == linha_selecionada].iloc[0]
+    nome = membro["Nome"]
+    classe = membro["Classe"]
+    status = membro["Status"].split(", ")
+    editar = True
+else:
+    nome = ""
+    classe = CLASSES[0]
+    status = []
+    editar = False
+
+with st.form("form_membro"):
+    nome_input = st.text_input("Nome", value=nome)
+    classe_input = st.selectbox("Classe", CLASSES, index=CLASSES.index(classe) if classe in CLASSES else 0)
+    status_input = st.multiselect("Status", STATUS_OPCOES, default=status)
+
+    submit = st.form_submit_button("Salvar")
+
+    if submit:
+        if not nome_input or not status_input:
+            st.warning("Preencha o nome e selecione pelo menos um status.")
+        else:
+            if editar:
+                df.loc[df["Nome"] == nome, ["Nome", "Classe", "Status"]] = [
+                    nome_input, classe_input, ', '.join(status_input)
+                ]
+                st.success(f"Membro {nome_input} atualizado!")
+            else:
+                novo = pd.DataFrame({"Nome": [nome_input], "Classe": [classe_input], "Status": [', '.join(status_input)]})
+                df = pd.concat([df, novo], ignore_index=True)
+                st.success(f"Membro {nome_input} adicionado!")
+
+            df.to_excel(FILE_PATH, index=False)
+            st.experimental_rerun()
+
+# ==== Mostrar Tabela ====
 st.subheader("📑 Dados dos Membros")
 
-# Colorir status
 def colorir_linha(row):
+    styles = ['color: black'] * len(row)  # 🔥 Texto preto
     if "Não Verificado" in row["Status"]:
-        return ['background-color: #ffcccc']*len(row)
+        styles = ['background-color: #ffcccc; color: black'] * len(row)
     elif "Verificado" in row["Status"]:
-        return ['background-color: #ccffcc']*len(row)
+        styles = ['background-color: #ccffcc; color: black'] * len(row)
     elif "Comprando Artefato" in row["Status"] or "Comprando Crystal" in row["Status"]:
-        return ['background-color: #fff2cc']*len(row)
-    else:
-        return ['']*len(row)
+        styles = ['background-color: #fff2cc; color: black'] * len(row)
+    return styles
 
 st.dataframe(
     df_filtrado.style.apply(colorir_linha, axis=1),
@@ -60,47 +106,7 @@ st.dataframe(
 
 st.divider()
 
-# ==== Área de Cadastro e Edição ====
-st.subheader("➕ Cadastro / ✏️ Edição")
-
-with st.form("form_membro"):
-    nome = st.text_input("Nome")
-    classe = st.selectbox("Classe", CLASSES)
-    status = st.multiselect("Status", STATUS_OPCOES)
-
-    editar = st.checkbox("Editar membro existente")
-
-    submit = st.form_submit_button("Salvar")
-
-    if submit:
-        if not nome or not status:
-            st.warning("Preencha o nome e selecione pelo menos um status.")
-        else:
-            if editar:
-                df.loc[df["Nome"] == nome, ["Classe", "Status"]] = [classe, ', '.join(status)]
-                st.success(f"Membro {nome} atualizado!")
-            else:
-                novo = pd.DataFrame({"Nome": [nome], "Classe": [classe], "Status": [', '.join(status)]})
-                df = pd.concat([df, novo], ignore_index=True)
-                st.success(f"Membro {nome} adicionado!")
-
-            df.to_excel(FILE_PATH, index=False)
-            st.experimental_rerun()
-
-# ==== Área de Seleção para Edição ====
-st.subheader("✏️ Selecionar para Edição")
-
-selecao = st.selectbox("Selecione um membro para preencher os campos", [""] + list(df_filtrado["Nome"]))
-
-if selecao:
-    membro = df[df["Nome"] == selecao].iloc[0]
-    st.info(f"Preenchendo campos com dados de {selecao}")
-
-    st.session_state["nome"] = membro["Nome"]
-    st.session_state["classe"] = membro["Classe"]
-    st.session_state["status"] = membro["Status"].split(", ")
-
-# ==== Remover ====
+# ==== Remoção ====
 st.subheader("🗑️ Remover Membros")
 
 for i, row in df_filtrado.iterrows():
