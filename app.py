@@ -17,13 +17,13 @@ else:
 def salvar_dados():
     df.to_csv(arquivo_csv, index=False)
 
-# Cor das linhas
+# Definir cor das linhas com prioridade correta
 def highlight_row(row):
     status = str(row["Status"])
-    if "Verificado" in status:
-        return ["background-color: #d4edda; color: green"] * len(row)
-    elif "Não Verificado" in status:
+    if "Não Verificado" in status:
         return ["background-color: #f8d7da; color: red"] * len(row)
+    elif "Verificado" in status:
+        return ["background-color: #d4edda; color: green"] * len(row)
     elif "Comprando Artefato" in status or "Comprando Crystal" in status:
         return ["background-color: #fff3cd; color: orange"] * len(row)
     else:
@@ -51,7 +51,7 @@ with st.expander("Gerenciar Dados"):
         linha = st.selectbox(
             "Selecione para editar/remover (ou deixe vazio para adicionar):",
             options=[None] + list(df.index),
-            format_func=lambda x: f"{df.loc[x, 'Nome']} - {df.loc[x, 'Classe']}" if x is not None else "Editar Membro"
+            format_func=lambda x: f"{df.loc[x, 'Nome']} - {df.loc[x, 'Classe']}" if x is not None else "Adicionar Novo"
         )
     else:
         linha = None
@@ -64,7 +64,7 @@ with st.expander("Gerenciar Dados"):
     if 'status_atual' not in st.session_state:
         st.session_state.status_atual = []
 
-    # Preencher os campos automaticamente
+    # Preencher os campos automaticamente ao selecionar
     if linha is not None:
         if st.session_state.nome == "":
             st.session_state.nome = df.loc[linha, "Nome"]
