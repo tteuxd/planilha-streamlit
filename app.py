@@ -51,7 +51,7 @@ with st.expander("Gerenciar Dados"):
         linha = st.selectbox(
             "Selecione para editar/remover (ou deixe vazio para adicionar):",
             options=[None] + list(df.index),
-            format_func=lambda x: f"{df.loc[x, 'Nome']} - {df.loc[x, 'Classe']}" if x is not None else "Adicionar Novo"
+            format_func=lambda x: f"{df.loc[x, 'Nome']} - {df.loc[x, 'Classe']}" if x is not None else "Editar Membro"
         )
     else:
         linha = None
