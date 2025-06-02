@@ -4,7 +4,7 @@ import os
 
 st.set_page_config(page_title="Planilha de Cadastro", layout="wide")
 
-# Arquivo
+# Arquivo CSV
 arquivo_csv = "dados.csv"
 
 # Carregar dados
@@ -17,7 +17,7 @@ else:
 def salvar_dados():
     df.to_csv(arquivo_csv, index=False)
 
-# Definir cor das linhas com prioridade correta
+# Função para colorir linhas
 def highlight_row(row):
     status = str(row["Status"])
     if "Não Verificado" in status:
@@ -28,6 +28,18 @@ def highlight_row(row):
         return ["background-color: #fff3cd; color: orange"] * len(row)
     else:
         return [""] * len(row)
+
+# 🔥 Callback que preenche os campos quando muda o selectbox
+def selecionar_linha():
+    if st.session_state.linha_selecionada is not None:
+        st.session_state.nome = df.loc[st.session_state.linha_selecionada, "Nome"]
+        st.session_state.classe = df.loc[st.session_state.linha_selecionada, "Classe"]
+        status = df.loc[st.session_state.linha_selecionada, "Status"]
+        st.session_state.status_atual = status.split(", ") if pd.notna(status) else []
+    else:
+        st.session_state.nome = ""
+        st.session_state.classe = ""
+        st.session_state.status_atual = []
 
 # Título
 st.title("🗒️ Planilha de Cadastro de Jogadores")
@@ -46,50 +58,25 @@ st.subheader("✍️ Adicionar, Editar ou Remover")
 
 with st.expander("Gerenciar Dados"):
 
-    # Seleção de linha
-    if not df.empty:
-        linha = st.selectbox(
-            "Selecione para editar/remover (ou deixe vazio para adicionar):",
-            options=[None] + list(df.index),
-            format_func=lambda x: f"{df.loc[x, 'Nome']} - {df.loc[x, 'Classe']}" if x is not None else "Adicionar Novo"
-        )
-    else:
-        linha = None
-
-    # Inicializar sessão para manter os dados nos campos
-    if 'nome' not in st.session_state:
-        st.session_state.nome = ""
-    if 'classe' not in st.session_state:
-        st.session_state.classe = ""
-    if 'status_atual' not in st.session_state:
-        st.session_state.status_atual = []
-
-    # Preencher os campos automaticamente ao selecionar
-    if linha is not None:
-        if st.session_state.nome == "":
-            st.session_state.nome = df.loc[linha, "Nome"]
-        if st.session_state.classe == "":
-            st.session_state.classe = df.loc[linha, "Classe"]
-        if st.session_state.status_atual == []:
-            st.session_state.status_atual = df.loc[linha, "Status"].split(", ") if pd.notna(df.loc[linha, "Status"]) else []
-    else:
-        if st.session_state.nome != "":
-            st.session_state.nome = ""
-        if st.session_state.classe != "":
-            st.session_state.classe = ""
-        if st.session_state.status_atual != []:
-            st.session_state.status_atual = []
+    # Selectbox para selecionar a linha
+    linha = st.selectbox(
+        "Selecione para editar/remover (ou deixe vazio para adicionar):",
+        options=[None] + list(df.index),
+        format_func=lambda x: f"{df.loc[x, 'Nome']} - {df.loc[x, 'Classe']}" if x is not None else "Adicionar Novo",
+        key="linha_selecionada",
+        on_change=selecionar_linha
+    )
 
     # Campos de texto
     col1, col2 = st.columns(2)
-    nome = col1.text_input("Nome", value=st.session_state.nome, key="nome")
-    classe = col2.text_input("Classe", value=st.session_state.classe, key="classe")
+    nome = col1.text_input("Nome", key="nome")
+    classe = col2.text_input("Classe", key="classe")
 
     # Checkboxes
-    verificado = st.checkbox("✅ Verificado", value="Verificado" in st.session_state.status_atual)
-    nao_verificado = st.checkbox("❌ Não Verificado", value="Não Verificado" in st.session_state.status_atual)
-    comprando_artefato = st.checkbox("🛒 Comprando Artefato", value="Comprando Artefato" in st.session_state.status_atual)
-    comprando_crystal = st.checkbox("💎 Comprando Crystal", value="Comprando Crystal" in st.session_state.status_atual)
+    verificado = st.checkbox("✅ Verificado", value="Verificado" in st.session_state.get("status_atual", []))
+    nao_verificado = st.checkbox("❌ Não Verificado", value="Não Verificado" in st.session_state.get("status_atual", []))
+    comprando_artefato = st.checkbox("🛒 Comprando Artefato", value="Comprando Artefato" in st.session_state.get("status_atual", []))
+    comprando_crystal = st.checkbox("💎 Comprando Crystal", value="Comprando Crystal" in st.session_state.get("status_atual", []))
 
     # Montar status
     status_list = []
@@ -122,6 +109,7 @@ with st.expander("Gerenciar Dados"):
             st.session_state.nome = ""
             st.session_state.classe = ""
             st.session_state.status_atual = []
+            st.session_state.linha_selecionada = None
             st.experimental_rerun()
         else:
             st.warning("Preencha os campos de Nome e Classe.")
@@ -133,12 +121,14 @@ with st.expander("Gerenciar Dados"):
         st.session_state.nome = ""
         st.session_state.classe = ""
         st.session_state.status_atual = []
+        st.session_state.linha_selecionada = None
         st.experimental_rerun()
 
     if col5.button("♻️ Limpar Campos"):
         st.session_state.nome = ""
         st.session_state.classe = ""
         st.session_state.status_atual = []
+        st.session_state.linha_selecionada = None
         st.experimental_rerun()
 
 # Exportação
