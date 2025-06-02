@@ -18,14 +18,15 @@ CLASSES = sorted([
 
 STATUS_OPCOES = ["Verificado", "Não Verificado", "Comprando Artefato", "Comprando Crystal"]
 
-# ==== Carregar dados ====
-if os.path.exists(FILE_PATH):
-    df = pd.read_excel(FILE_PATH)
-else:
-    df = pd.DataFrame(columns=["Nome", "Classe", "Status"])
+# ==== Carregar dados na sessão ====
+if "df_membros" not in st.session_state:
+    if os.path.exists(FILE_PATH):
+        st.session_state.df_membros = pd.read_excel(FILE_PATH)
+    else:
+        st.session_state.df_membros = pd.DataFrame(columns=["Nome", "Classe", "Status"])
 
 # ==== Normalizar nome ====
-df["Nome"] = df["Nome"].astype(str).str.strip().str.title()
+st.session_state.df_membros["Nome"] = st.session_state.df_membros["Nome"].astype(str).str.strip().str.title()
 
 # ==== Sidebar ====
 st.sidebar.title("Menu")
@@ -34,6 +35,8 @@ pagina = st.sidebar.radio("Escolha a Página", ["Gerenciamento de Membros", "Rel
 # ==== Página: Gerenciamento de Membros ====
 if pagina == "Gerenciamento de Membros":
     st.title("📋 Gerenciamento de Membros")
+
+    df = st.session_state.df_membros
 
     st.subheader("🔍 Filtros de Pesquisa")
     colf1, colf2, colf3 = st.columns(3)
@@ -89,7 +92,7 @@ if pagina == "Gerenciamento de Membros":
         classe = CLASSES[0]
         status = []
     else:
-        dados = df_filtrado[df_filtrado["Nome"] == linha_selecionada].iloc[0]
+        dados = df[df["Nome"] == linha_selecionada].iloc[0]
         nome = dados["Nome"]
         classe = dados["Classe"]
         status = dados["Status"].split(", ") if isinstance(dados["Status"], str) else []
@@ -113,26 +116,26 @@ if pagina == "Gerenciamento de Membros":
                 status_str = ", ".join(status)
 
                 if nome in df["Nome"].values:
-                    df.loc[df["Nome"] == nome, ["Classe", "Status"]] = [classe, status_str]
+                    st.session_state.df_membros.loc[st.session_state.df_membros["Nome"] == nome, ["Classe", "Status"]] = [classe, status_str]
                     st.success(f"Membro {nome} atualizado.")
                 else:
-                    df.loc[len(df)] = [nome, classe, status_str]
+                    st.session_state.df_membros.loc[len(st.session_state.df_membros)] = [nome, classe, status_str]
                     st.success(f"Membro {nome} adicionado.")
 
-                df.to_excel(FILE_PATH, index=False)
+                st.session_state.df_membros.to_excel(FILE_PATH, index=False)
             else:
                 st.warning("⚠️ Preencha o campo Nome.")
 
     with col4:
         if linha_selecionada != "Novo Jogador":
             if st.button("🗑️ Excluir Membro"):
-                df = df[df["Nome"] != linha_selecionada]
-                df.to_excel(FILE_PATH, index=False)
+                st.session_state.df_membros = st.session_state.df_membros[st.session_state.df_membros["Nome"] != linha_selecionada]
+                st.session_state.df_membros.to_excel(FILE_PATH, index=False)
                 st.success(f"Membro {linha_selecionada} excluído.")
 
     st.subheader("📤 Exportar Dados")
     buffer = BytesIO()
-    df.to_excel(buffer, index=False)
+    st.session_state.df_membros.to_excel(buffer, index=False)
     st.download_button(
         label="📥 Baixar Excel",
         data=buffer.getvalue(),
@@ -143,6 +146,8 @@ if pagina == "Gerenciamento de Membros":
 # ==== Página: Relatórios ====
 if pagina == "Relatórios":
     st.title("📊 Relatórios de Membros")
+
+    df = st.session_state.df_membros
 
     aba1, aba2 = st.tabs(["Status dos Membros", "Distribuição de Classes"])
 
