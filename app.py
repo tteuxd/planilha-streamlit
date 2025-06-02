@@ -2,23 +2,22 @@ import streamlit as st
 import pandas as pd
 import os
 import matplotlib.pyplot as plt
+from io import BytesIO
 
 st.set_page_config(page_title="Planilha de Membros", layout="wide")
 
 FILE_PATH = "dados_membros.xlsx"
 
-# Lista de classes em ordem alfabética
-CLASSES = [
-    "Archer", "Berserker", "Corsair", "DarkKnight", "Deadeye",
-    "Dosa", "Drakania", "Guardian", "Hashashin", "Kunoichi",
-    "Lahn", "Maegu", "Maehwa", "Musa", "Mystic", "Ninja",
-    "Nova", "Ranger", "Sage", "Scholar", "Shai", "Sorceress",
-    "Striker", "Tamer", "Valkyrie", "Warrior", "Witch", "Wizard", "Woosa"
-]
+CLASSES = sorted([
+    "Warrior", "Ranger", "Berserker", "Sorceress", "Valkyrie", "Wizard", "Witch", "Tamer",
+    "Musa", "Maehwa", "Ninja", "Kunoichi", "DarkKnight", "Striker", "Mystic", "Lahn",
+    "Archer", "Shai", "Guardian", "Hashashin", "Nova", "Sage", "Corsair", "Drakania",
+    "Maegu", "Woosa", "Scholar", "Dosa", "Deadeye"
+])
 
 STATUS_OPCOES = ["Verificado", "Não Verificado", "Comprando Artefato", "Comprando Crystal"]
 
-# Carregar dados ou criar arquivo
+# Carregar dados
 if os.path.exists(FILE_PATH):
     df = pd.read_excel(FILE_PATH)
 else:
@@ -40,115 +39,92 @@ if filtro_classe:
 if filtro_status:
     df_filtrado = df_filtrado[df_filtrado["Status"].str.contains('|'.join(filtro_status))]
 
-# ==== Área de Cadastro e Edição ====
-st.subheader("➕ Cadastro / ✏️ Edição")
-
-# ==== Detectar clique na tabela ====
-linha_selecionada = st.radio(
-    "Clique no nome para editar:",
-    options=[""] + list(df_filtrado["Nome"]),
-    horizontal=True
-)
-
-if linha_selecionada:
-    membro = df[df["Nome"] == linha_selecionada].iloc[0]
-    nome = membro["Nome"]
-    classe = membro["Classe"]
-    status = membro["Status"].split(", ")
-    editar = True
-else:
-    nome = ""
-    classe = CLASSES[0]
-    status = []
-    editar = False
-
-with st.form("form_membro"):
-    nome_input = st.text_input("Nome", value=nome)
-    classe_input = st.selectbox("Classe", CLASSES, index=CLASSES.index(classe) if classe in CLASSES else 0)
-    status_input = st.multiselect("Status", STATUS_OPCOES, default=status)
-
-    submit = st.form_submit_button("Salvar")
-
-    if submit:
-        if not nome_input or not status_input:
-            st.warning("Preencha o nome e selecione pelo menos um status.")
-        else:
-            if editar:
-                df.loc[df["Nome"] == nome, ["Nome", "Classe", "Status"]] = [
-                    nome_input, classe_input, ', '.join(status_input)
-                ]
-                st.success(f"Membro {nome_input} atualizado!")
-            else:
-                novo = pd.DataFrame({"Nome": [nome_input], "Classe": [classe_input], "Status": [', '.join(status_input)]})
-                df = pd.concat([df, novo], ignore_index=True)
-                st.success(f"Membro {nome_input} adicionado!")
-
-            df.to_excel(FILE_PATH, index=False)
-            st.experimental_rerun()
-
-# ==== Mostrar Tabela ====
-st.subheader("📑 Dados dos Membros")
-
-def colorir_linha(row):
-    styles = ['color: black'] * len(row)  # 🔥 Texto preto
-    if "Não Verificado" in row["Status"]:
-        styles = ['background-color: #ffcccc; color: black'] * len(row)
-    elif "Verificado" in row["Status"]:
-        styles = ['background-color: #ccffcc; color: black'] * len(row)
-    elif "Comprando Artefato" in row["Status"] or "Comprando Crystal" in row["Status"]:
-        styles = ['background-color: #fff2cc; color: black'] * len(row)
-    return styles
-
-st.dataframe(
-    df_filtrado.style.apply(colorir_linha, axis=1),
-    use_container_width=True
-)
-
-st.divider()
-
-# ==== Remoção ====
-st.subheader("🗑️ Remover Membros")
-
-for i, row in df_filtrado.iterrows():
-    with st.expander(f"Remover {row['Nome']}"):
-        confirmar = st.checkbox(f"Confirmar remoção de {row['Nome']}", key=f"confirm_{i}")
-        if confirmar:
-            if st.button(f"Remover {row['Nome']}", key=f"remover_{i}"):
-                df = df.drop(index=i).reset_index(drop=True)
-                df.to_excel(FILE_PATH, index=False)
-                st.success(f"❌ {row['Nome']} removido!")
-                st.experimental_rerun()
-
-st.divider()
-
-# ==== Relatórios ====
-st.subheader("📊 Relatórios e Gráficos")
+# ==== Formulário ====
+st.subheader("➕ Cadastro / Edição de Membros")
 
 col1, col2 = st.columns(2)
 
 with col1:
-    st.markdown("#### 📈 Distribuição de Status")
+    nome = st.text_input("Nome")
+    classe = st.selectbox("Classe", CLASSES)
+
+with col2:
+    status = st.multiselect("Status", STATUS_OPCOES)
+
+# ==== Tabela com clique para editar ====
+st.subheader("📑 Dados dos Membros")
+
+def cor_status(val):
+    if pd.isna(val):
+        return "color: black"
+    elif "Não Verificado" in val:
+        return "color: red"
+    elif "Verificado" in val:
+        return "color: green"
+    elif "Comprando Artefato" in val or "Comprando Crystal" in val:
+        return "color: orange"
+    else:
+        return "color: black"
+
+if not df_filtrado.empty:
+    st.dataframe(
+        df_filtrado.style.applymap(cor_status, subset=["Status"]),
+        use_container_width=True,
+        height=400
+    )
+
+    linha_selecionada = st.selectbox("Clique para editar", df_filtrado["Nome"])
+
+    if linha_selecionada:
+        dados = df_filtrado[df_filtrado["Nome"] == linha_selecionada].iloc[0]
+        nome = dados["Nome"]
+        classe = dados["Classe"]
+        status = dados["Status"].split(", ") if isinstance(dados["Status"], str) else []
+
+# ==== Salvar / Adicionar ====
+if st.button("💾 Salvar"):
+    if nome:
+        status_str = ", ".join(status)
+
+        if nome in df["Nome"].values:
+            df.loc[df["Nome"] == nome, ["Classe", "Status"]] = [classe, status_str]
+            st.success(f"Membro {nome} atualizado.")
+        else:
+            df.loc[len(df)] = [nome, classe, status_str]
+            st.success(f"Membro {nome} adicionado.")
+
+        df.to_excel(FILE_PATH, index=False)
+    else:
+        st.warning("⚠️ Preencha o campo Nome.")
+
+# ==== Relatórios ====
+st.subheader("📊 Relatórios")
+
+aba1, aba2 = st.tabs(["Status dos Membros", "Distribuição de Classes"])
+
+with aba1:
     status_counts = df["Status"].str.get_dummies(sep=", ").sum()
     fig1, ax1 = plt.subplots()
     ax1.pie(status_counts, labels=status_counts.index, autopct='%1.1f%%', startangle=90)
     ax1.axis('equal')
     st.pyplot(fig1)
 
-with col2:
-    st.markdown("#### 📈 Distribuição de Classes")
-    class_counts = df["Classe"].value_counts()
+with aba2:
+    classe_counts = df["Classe"].value_counts()
     fig2, ax2 = plt.subplots()
-    ax2.bar(class_counts.index, class_counts.values, color='skyblue')
+    ax2.bar(classe_counts.index, classe_counts.values, color="skyblue")
     plt.xticks(rotation=90)
+    ax2.set_ylabel("Quantidade")
+    ax2.set_title("Distribuição de Classes")
     st.pyplot(fig2)
 
-st.divider()
-
-# ==== Exportar ====
-st.subheader("⬇️ Exportar Dados")
+# ==== Exportação ====
+st.subheader("📤 Exportar Dados")
+buffer = BytesIO()
+df.to_excel(buffer, index=False)
 st.download_button(
     label="📥 Baixar Excel",
-    data=df_filtrado.to_excel(index=False, engine='openpyxl'),
-    file_name="membros.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    data=buffer.getvalue(),
+    file_name="dados_membros.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 )
