@@ -5,8 +5,6 @@ from streamlit_autorefresh import st_autorefresh
 
 CONFIG_FILE = "timers_config.json"
 
-# --- Funções para salvar/ler config ---
-
 def load_config():
     if os.path.exists(CONFIG_FILE):
         with open(CONFIG_FILE, "r") as f:
@@ -17,17 +15,17 @@ def save_config(data):
     with open(CONFIG_FILE, "w") as f:
         json.dump(data, f, indent=2)
 
-# --- Inicialização da sessão ---
-
 if "timers" not in st.session_state:
     st.session_state.timers = load_config()
 
-# Atualiza a página automaticamente a cada 1 segundo
+# Controle para evitar som repetido
+if "played_sounds" not in st.session_state:
+    st.session_state.played_sounds = {}
+
 st_autorefresh(interval=1000, limit=None, key="timer_refresh")
 
-st.title("Multi Timer Online com Streamlit")
+st.title("Multi Timer Online com Streamlit com Som")
 
-# --- Formulário para criar novo timer ---
 with st.form("novo_timer_form"):
     nome = st.text_input("Nome do Timer", value="Timer")
     minutos = st.number_input("Minutos", min_value=0, value=0)
@@ -49,10 +47,10 @@ if add:
                 "loop": loop,
                 "active": True,
             }
+            st.session_state.played_sounds[nome] = False
             save_config(st.session_state.timers)
             st.success(f"Timer '{nome}' adicionado.")
 
-# --- Mostrar timers ativos ---
 to_remove = []
 for nome, timer in st.session_state.timers.items():
     st.markdown("---")
@@ -61,10 +59,16 @@ for nome, timer in st.session_state.timers.items():
     if timer["active"]:
         if timer["seconds_left"] > 0:
             timer["seconds_left"] -= 1
+            st.session_state.played_sounds[nome] = False  # reset flag se timer em contagem
         else:
+            # Timer zerou
+            if not st.session_state.played_sounds.get(nome, False):
+                st.audio("https://www.soundjay.com/button/beep-07.wav")
+                st.session_state.played_sounds[nome] = True
             st.warning(f"⏰ Timer '{nome}' terminou!")
             if timer["loop"]:
                 timer["seconds_left"] = timer["total_seconds"]
+                st.session_state.played_sounds[nome] = False  # reset flag para novo loop
             else:
                 timer["active"] = False
 
@@ -84,7 +88,8 @@ for nome, timer in st.session_state.timers.items():
         to_remove.append(nome)
         st.success(f"Timer '{nome}' removido.")
 
-# Remover timers parados
 for r in to_remove:
+    if r in st.session_state.played_sounds:
+        del st.session_state.played_sounds[r]
     del st.session_state.timers[r]
     save_config(st.session_state.timers)
