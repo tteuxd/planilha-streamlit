@@ -63,7 +63,7 @@ for nome, timer in st.session_state.timers.items():
         else:
             # Timer zerou
             if not st.session_state.played_sounds.get(nome, False):
-                st.audio("https://www.soundjay.com/button/beep-07.wav")
+                st.audio("https://www.soundjay.com/communication/sounds/cassette-eject-1.mp3")
                 st.session_state.played_sounds[nome] = True
             st.warning(f"⏰ Timer '{nome}' terminou!")
             if timer["loop"]:
