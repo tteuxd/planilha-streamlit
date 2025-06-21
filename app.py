@@ -15,17 +15,37 @@ def save_config(data):
     with open(CONFIG_FILE, "w") as f:
         json.dump(data, f, indent=2)
 
+# Carregar timers ou iniciar vazio
 if "timers" not in st.session_state:
     st.session_state.timers = load_config()
 
-# Controle para evitar som repetido
+# Corrigir timers antigos que não têm as chaves necessárias
+for t in st.session_state.timers.values():
+    if "active" not in t:
+        t["active"] = True
+    if "seconds_left" not in t:
+        t["seconds_left"] = t["total_seconds"]
+    if "loop" not in t:
+        t["loop"] = False
+
 if "played_sounds" not in st.session_state:
     st.session_state.played_sounds = {}
 
+# Atualiza a página automaticamente a cada 1 segundo
 st_autorefresh(interval=1000, limit=None, key="timer_refresh")
 
 st.title("Multi Timer Online com Streamlit com Som")
 
+def play_beep():
+    beep_html = """
+    <audio autoplay>
+        <source src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" type="audio/ogg">
+        Seu navegador não suporta áudio.
+    </audio>
+    """
+    st.markdown(beep_html, unsafe_allow_html=True)
+
+# Formulário para adicionar novo timer
 with st.form("novo_timer_form"):
     nome = st.text_input("Nome do Timer", value="Timer")
     minutos = st.number_input("Minutos", min_value=0, value=0)
@@ -59,16 +79,15 @@ for nome, timer in st.session_state.timers.items():
     if timer["active"]:
         if timer["seconds_left"] > 0:
             timer["seconds_left"] -= 1
-            st.session_state.played_sounds[nome] = False  # reset flag se timer em contagem
+            st.session_state.played_sounds[nome] = False
         else:
-            # Timer zerou
             if not st.session_state.played_sounds.get(nome, False):
-                st.audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg")
+                play_beep()
                 st.session_state.played_sounds[nome] = True
             st.warning(f"⏰ Timer '{nome}' terminou!")
             if timer["loop"]:
                 timer["seconds_left"] = timer["total_seconds"]
-                st.session_state.played_sounds[nome] = False  # reset flag para novo loop
+                st.session_state.played_sounds[nome] = False
             else:
                 timer["active"] = False
 
