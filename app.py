@@ -15,27 +15,6 @@ def save_config(data):
     with open(CONFIG_FILE, "w") as f:
         json.dump(data, f, indent=2)
 
-# Carregar timers ou iniciar vazio
-if "timers" not in st.session_state:
-    st.session_state.timers = load_config()
-
-# Corrigir timers antigos que não têm as chaves necessárias
-for t in st.session_state.timers.values():
-    if "active" not in t:
-        t["active"] = True
-    if "seconds_left" not in t:
-        t["seconds_left"] = t["total_seconds"]
-    if "loop" not in t:
-        t["loop"] = False
-
-if "played_sounds" not in st.session_state:
-    st.session_state.played_sounds = {}
-
-# Atualiza a página automaticamente a cada 1 segundo
-st_autorefresh(interval=1000, limit=None, key="timer_refresh")
-
-st.title("Multi Timer Online com Streamlit com Som")
-
 def play_beep():
     beep_html = """
     <audio autoplay>
@@ -45,7 +24,15 @@ def play_beep():
     """
     st.markdown(beep_html, unsafe_allow_html=True)
 
-# Formulário para adicionar novo timer
+# Atualiza automaticamente a cada 1 segundo
+st_autorefresh(interval=1000, limit=None, key="timer_refresh")
+
+st.title("⏲️ Multi Timer Online (Sincronizado)")
+
+# Carrega timers do JSON a cada atualização
+timers = load_config()
+
+# Formulário para novo timer
 with st.form("novo_timer_form"):
     nome = st.text_input("Nome do Timer", value="Timer")
     minutos = st.number_input("Minutos", min_value=0, value=0)
@@ -56,38 +43,39 @@ with st.form("novo_timer_form"):
 if add:
     if minutos == 0 and segundos == 0:
         st.error("O tempo deve ser maior que zero!")
+    elif nome in timers:
+        st.warning(f"Timer com nome '{nome}' já existe.")
     else:
         total_segundos = minutos * 60 + segundos
-        if nome in st.session_state.timers:
-            st.warning(f"Timer com nome '{nome}' já existe. Escolha outro nome.")
-        else:
-            st.session_state.timers[nome] = {
-                "total_seconds": total_segundos,
-                "seconds_left": total_segundos,
-                "loop": loop,
-                "active": True,
-            }
-            st.session_state.played_sounds[nome] = False
-            save_config(st.session_state.timers)
-            st.success(f"Timer '{nome}' adicionado.")
+        timers[nome] = {
+            "total_seconds": total_segundos,
+            "seconds_left": total_segundos,
+            "loop": loop,
+            "active": True,
+            "played": False
+        }
+        save_config(timers)
+        st.success(f"Timer '{nome}' adicionado.")
 
+# Gerenciar timers
 to_remove = []
-for nome, timer in st.session_state.timers.items():
+for nome, timer in timers.items():
     st.markdown("---")
     col1, col2, col3 = st.columns([4, 1, 1])
 
+    # Atualiza timer
     if timer["active"]:
         if timer["seconds_left"] > 0:
             timer["seconds_left"] -= 1
-            st.session_state.played_sounds[nome] = False
+            timer["played"] = False
         else:
-            if not st.session_state.played_sounds.get(nome, False):
+            if not timer.get("played", False):
                 play_beep()
-                st.session_state.played_sounds[nome] = True
+                timer["played"] = True
             st.warning(f"⏰ Timer '{nome}' terminou!")
             if timer["loop"]:
                 timer["seconds_left"] = timer["total_seconds"]
-                st.session_state.played_sounds[nome] = False
+                timer["played"] = False
             else:
                 timer["active"] = False
 
@@ -100,15 +88,16 @@ for nome, timer in st.session_state.timers.items():
 
     loop_checkbox = col2.checkbox("Loop", value=timer["loop"], key=f"loop_{nome}")
     if loop_checkbox != timer["loop"]:
-        st.session_state.timers[nome]["loop"] = loop_checkbox
-        save_config(st.session_state.timers)
+        timers[nome]["loop"] = loop_checkbox
 
     if col3.button("🛑 Parar", key=f"stop_{nome}"):
         to_remove.append(nome)
         st.success(f"Timer '{nome}' removido.")
 
+# Remove timers
 for r in to_remove:
-    if r in st.session_state.played_sounds:
-        del st.session_state.played_sounds[r]
-    del st.session_state.timers[r]
-    save_config(st.session_state.timers)
+    if r in timers:
+        del timers[r]
+
+# Salva as alterações
+save_config(timers)
